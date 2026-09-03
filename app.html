@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>検出カウンター - 画面上の対象の出現回数を数える</title>
+<meta name="description" content="ブラウザだけで完結する汎用画像検出カウンター。共有した画面の中から登録した検出対象を探し、出現回数を記録します。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="full-view-root">
+
+<a class="skip-link" href="#main-content">メインコンテンツへ移動</a>
+
+<header class="app-header">
+  <h1>検出カウンター</h1>
+  <p class="app-subtitle">共有した画面の中から、登録した検出対象を探し、出現回数を記録します。</p>
+</header>
+
+<div class="privacy-banner" role="note">
+  <strong>プライバシーについて:</strong>
+  画面と画像の処理は、このブラウザ内だけで行われます。共有画面、登録画像、カウント結果が外部へ送信されることはありません。
+</div>
+
+<div id="browser-warning" class="warning-banner" hidden></div>
+
+<nav class="step-indicator" aria-label="操作の手順">
+  <ol>
+    <li id="step-indicator-1" class="step" data-step="1">
+      <span class="step-number">1</span>
+      <span class="step-label">画面を選択</span>
+    </li>
+    <li id="step-indicator-2" class="step" data-step="2">
+      <span class="step-number">2</span>
+      <span class="step-label">検出対象を登録</span>
+    </li>
+    <li id="step-indicator-3" class="step" data-step="3">
+      <span class="step-number">3</span>
+      <span class="step-label">カウントを開始</span>
+    </li>
+  </ol>
+</nav>
+
+<div id="status-banner" class="status-banner" role="status" aria-live="polite">
+  <span id="status-text">画面がまだ選択されていません。</span>
+</div>
+
+<main id="main-content">
+
+  <!-- ステップ1: 画面選択 -->
+  <section class="panel" id="panel-capture" aria-labelledby="heading-capture">
+    <h2 id="heading-capture">ステップ1: 検出したい画面を選択</h2>
+
+    <div class="info-box">
+      <p>次の画面で、検出したい内容が表示される「画面」「ウィンドウ」または「タブ」を選択してください。</p>
+      <p><strong>このWebアプリ自身ではなく、検出したい画面を選択してください。</strong></p>
+    </div>
+
+    <div class="button-row">
+      <button type="button" id="btn-start-capture" class="btn btn-primary">画面を選択</button>
+      <button type="button" id="btn-change-capture" class="btn" hidden>共有する画面を変更</button>
+      <button type="button" id="btn-stop-capture" class="btn btn-danger" hidden>画面共有を停止</button>
+    </div>
+
+    <div class="preview-wrapper" id="preview-wrapper" hidden>
+      <div class="preview-stage" id="preview-stage">
+        <video id="preview-video" playsinline muted></video>
+        <canvas id="overlay-canvas"></canvas>
+      </div>
+      <p class="preview-meta" id="preview-resolution">解像度: -</p>
+    </div>
+  </section>
+
+  <!-- ステップ2: 検出対象登録 -->
+  <section class="panel" id="panel-targets" aria-labelledby="heading-targets">
+    <h2 id="heading-targets">ステップ2: 検出対象を登録</h2>
+    <p class="panel-desc">画面上で見つけたいものを、画像として登録してください。ゲームの結果表示、通知アイコン、完了表示、状態表示、ボタン、バッジなど、どのような画像でも登録できます。</p>
+
+    <div class="register-methods">
+      <div class="register-method" id="register-from-capture">
+        <h3>共有中の画面から登録</h3>
+        <p class="method-desc">共有中の画面を一時停止し、範囲を指定して検出対象を切り取ります。</p>
+        <button type="button" id="btn-crop-from-capture" class="btn btn-primary" disabled>現在の画面から登録</button>
+        <p class="method-hint" id="crop-hint">画面を選択すると利用できます。</p>
+      </div>
+
+      <div class="register-method" id="register-from-file">
+        <h3>画像ファイルから登録</h3>
+        <p class="method-desc">PNG・JPEG・WebPなどの画像ファイルを選んで登録します。複数選択できます。</p>
+        <label for="file-input" class="btn">画像ファイルを選択</label>
+        <input type="file" id="file-input" accept="image/*" multiple class="visually-hidden-input">
+        <ul id="file-errors" class="file-errors" aria-live="polite"></ul>
+      </div>
+    </div>
+
+    <div id="crop-dialog-backdrop" class="dialog-backdrop" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="crop-dialog-title">
+        <h3 id="crop-dialog-title">検出対象を切り取る</h3>
+        <p class="dialog-desc">下に表示されている画像の上をドラッグして、検出したい部分を四角で囲んでください。</p>
+        <div class="frame-select-stage-wrapper">
+          <div class="frame-select-stage" id="crop-stage">
+            <canvas id="crop-frame-canvas"></canvas>
+            <canvas id="crop-overlay-canvas" class="frame-select-overlay"></canvas>
+          </div>
+        </div>
+        <p id="crop-size-info" class="frame-select-size-info">範囲を選択してください。</p>
+
+        <div class="crop-preview-row" id="crop-preview-row" hidden>
+          <div class="crop-preview-thumb">
+            <canvas id="crop-thumb-canvas"></canvas>
+          </div>
+          <div class="crop-preview-form">
+            <label for="crop-target-name">対象名</label>
+            <input type="text" id="crop-target-name" value="検出対象1">
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button type="button" id="btn-crop-reselect" class="btn" hidden>再選択</button>
+          <button type="button" id="btn-crop-add" class="btn btn-primary" disabled>検出対象として追加</button>
+          <button type="button" id="btn-crop-cancel" class="btn">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="target-list-empty" class="empty-state">まだ検出対象が登録されていません。</div>
+    <ul id="target-list" class="target-list"></ul>
+  </section>
+
+  <!-- 探索範囲 -->
+  <section class="panel" id="panel-region" aria-labelledby="heading-region">
+    <h2 id="heading-region">探索範囲</h2>
+    <p class="panel-desc">画面のどの部分から検出対象を探すかを指定できます。範囲を狭めると、処理が軽くなり誤検出も減らせます。</p>
+
+    <fieldset class="region-mode">
+      <legend>探索範囲の種類</legend>
+      <label><input type="radio" name="region-mode" value="full" id="region-mode-full" checked> 画面全体</label>
+      <label><input type="radio" name="region-mode" value="custom" id="region-mode-custom"> 範囲を指定</label>
+    </fieldset>
+
+    <div class="button-row">
+      <button type="button" id="btn-select-region" class="btn" disabled>範囲を選択</button>
+      <button type="button" id="btn-reset-region" class="btn">探索範囲をリセット</button>
+      <label class="toggle-label"><input type="checkbox" id="toggle-region-visible" checked> 探索範囲を画面に表示する</label>
+    </div>
+    <p id="region-info" class="region-info">現在の探索範囲: 画面全体</p>
+
+    <div id="region-select-dialog-backdrop" class="dialog-backdrop" hidden>
+      <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="region-select-dialog-title">
+        <h3 id="region-select-dialog-title">探索範囲を選択</h3>
+        <p class="dialog-desc">下に表示されている画像の上をドラッグして、検出対象を探す範囲を四角で囲んでください。</p>
+        <div class="frame-select-stage-wrapper">
+          <div class="frame-select-stage" id="region-select-stage">
+            <canvas id="region-select-frame-canvas"></canvas>
+            <canvas id="region-select-overlay-canvas" class="frame-select-overlay"></canvas>
+          </div>
+        </div>
+        <p id="region-select-size-info" class="frame-select-size-info">範囲を選択してください。</p>
+
+        <div class="button-row">
+          <button type="button" id="btn-region-select-reselect" class="btn" hidden>再選択</button>
+          <button type="button" id="btn-region-select-confirm" class="btn btn-primary" disabled>この範囲に決定</button>
+          <button type="button" id="btn-region-select-cancel" class="btn">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ステップ3: カウント -->
+  <section class="panel" id="panel-count" aria-labelledby="heading-count">
+    <h2 id="heading-count">ステップ3: カウントを開始</h2>
+    <div class="button-row">
+      <button type="button" id="btn-start-counting" class="btn btn-primary" disabled>カウントを開始</button>
+      <button type="button" id="btn-stop-counting" class="btn" hidden>カウントを停止</button>
+      <button type="button" id="btn-undo" class="btn" disabled>最後の操作を取り消す</button>
+      <button type="button" id="btn-reset-all" class="btn btn-danger">全カウントをリセット</button>
+    </div>
+    <div class="button-row">
+      <button type="button" id="btn-enter-compact" class="btn">結果だけの小さい表示にする</button>
+    </div>
+    <p class="panel-desc">「カウントを開始」を押すと、自動的に結果だけを表示する小さいウィンドウに切り替わります。このウィンドウを画面の隅に置いたままにしておけば、他の操作をしていてもカウントは続きます(このウィンドウ自体をOSの機能で最小化すると、ブラウザの仕様上カウントが遅くなったり止まったりすることがあります)。</p>
+  </section>
+
+  <!-- 履歴 -->
+  <section class="panel" id="panel-history" aria-labelledby="heading-history">
+    <h2 id="heading-history">
+      <button type="button" id="btn-toggle-history" class="collapse-toggle" aria-expanded="false" aria-controls="history-body">
+        カウント履歴を表示
+      </button>
+    </h2>
+    <div id="history-body" class="history-body" hidden>
+      <div class="button-row">
+        <button type="button" id="btn-clear-history" class="btn btn-danger">履歴の全削除</button>
+        <button type="button" id="btn-export-json" class="btn">JSON形式で書き出す</button>
+        <button type="button" id="btn-export-csv" class="btn">CSV形式で書き出す</button>
+      </div>
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th scope="col">時刻</th>
+              <th scope="col">対象名</th>
+              <th scope="col">操作</th>
+              <th scope="col">種別</th>
+              <th scope="col">変更</th>
+              <th scope="col">スコア</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+      <p id="history-empty" class="empty-state">履歴はまだありません。</p>
+    </div>
+  </section>
+
+  <!-- 設定の保存 -->
+  <section class="panel" id="panel-save" aria-labelledby="heading-save">
+    <h2 id="heading-save">設定の保存</h2>
+    <p class="panel-desc">検出対象・カウント・設定は、このブラウザに自動的に保存されます。他の環境へ持ち運ぶ場合は、ファイルとして書き出してください。</p>
+    <div class="button-row">
+      <button type="button" id="btn-export-settings" class="btn">設定を書き出す</button>
+      <label for="import-settings-input" class="btn">設定を読み込む</label>
+      <input type="file" id="import-settings-input" accept="application/json,.json" class="visually-hidden-input">
+    </div>
+    <p id="save-status" class="save-status" aria-live="polite"></p>
+  </section>
+
+  <!-- 詳細設定 -->
+  <details class="panel details-panel" id="advanced-settings">
+    <summary>詳細設定</summary>
+
+    <fieldset class="settings-group">
+      <legend>基本設定</legend>
+
+      <div class="field-row">
+        <label for="setting-enter-threshold">検出開始閾値 (<span id="enter-threshold-value">0.85</span>)</label>
+        <input type="range" id="setting-enter-threshold" min="0.1" max="1" step="0.01" value="0.85">
+      </div>
+
+      <div class="field-row">
+        <label for="setting-exit-threshold">検出終了閾値 (<span id="exit-threshold-value">0.70</span>)</label>
+        <input type="range" id="setting-exit-threshold" min="0.1" max="1" step="0.01" value="0.70">
+      </div>
+      <p class="field-hint" id="threshold-hint"></p>
+
+      <div class="field-row">
+        <label for="setting-cooldown">クールダウン (ミリ秒)</label>
+        <input type="number" id="setting-cooldown" min="0" max="60000" step="100" value="3000">
+      </div>
+
+      <div class="field-row">
+        <label for="setting-analysis-fps">解析頻度</label>
+        <select id="setting-analysis-fps">
+          <option value="0.5">0.5回/秒</option>
+          <option value="1">1回/秒</option>
+          <option value="2" selected>2回/秒</option>
+          <option value="3">3回/秒</option>
+          <option value="5">5回/秒</option>
+        </select>
+      </div>
+    </fieldset>
+
+    <fieldset class="settings-group">
+      <legend>詳細設定</legend>
+
+      <div class="field-row">
+        <label for="setting-enter-frames">検出確定までの連続フレーム数</label>
+        <input type="number" id="setting-enter-frames" min="1" max="10" step="1" value="2">
+      </div>
+
+      <div class="field-row">
+        <label for="setting-exit-frames">検出終了までの連続フレーム数</label>
+        <input type="number" id="setting-exit-frames" min="1" max="10" step="1" value="2">
+      </div>
+
+      <div class="field-row">
+        <label for="setting-downscale">解析画像の縮小率</label>
+        <select id="setting-downscale">
+          <option value="1">縮小しない (100%)</option>
+          <option value="0.75">75%</option>
+          <option value="0.5" selected>50%</option>
+          <option value="0.25">25%</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label class="toggle-label"><input type="checkbox" id="setting-grayscale" checked> グレースケールで比較する</label>
+      </div>
+
+      <div class="field-row">
+        <label for="setting-multiscale">スケール探索</label>
+        <select id="setting-multiscale">
+          <option value="off" selected>無効</option>
+          <option value="3">90% / 100% / 110%</option>
+          <option value="5">80% / 90% / 100% / 110% / 120%</option>
+        </select>
+      </div>
+
+      <div class="field-row">
+        <label class="toggle-label"><input type="checkbox" id="setting-debug"> デバッグ表示を有効にする</label>
+      </div>
+
+      <div class="field-row">
+        <label class="toggle-label"><input type="checkbox" id="setting-sound"> 検出時に効果音を鳴らす</label>
+      </div>
+
+      <div class="field-row">
+        <label for="setting-min-template-size">最低テンプレートサイズ (px)</label>
+        <input type="number" id="setting-min-template-size" min="4" max="256" step="1" value="8">
+      </div>
+
+      <div class="field-row">
+        <label for="setting-max-template-count">最大検出対象数</label>
+        <input type="number" id="setting-max-template-count" min="1" max="50" step="1" value="20">
+      </div>
+    </fieldset>
+
+    <div id="debug-panel" class="debug-panel" hidden>
+      <h3>デバッグ情報</h3>
+      <dl id="debug-info-list" class="debug-info-list"></dl>
+    </div>
+  </details>
+
+  <!-- OpenCV読み込み状態 -->
+  <div id="opencv-loading-banner" class="opencv-banner" hidden>
+    <p>画像処理機能を読み込んでいます...</p>
+  </div>
+  <div id="opencv-error-banner" class="opencv-banner opencv-error" hidden>
+    <p id="opencv-error-message"></p>
+    <button type="button" id="btn-reload-opencv" class="btn">再読み込み</button>
+  </div>
+
+</main>
+
+<footer class="app-footer">
+  <p>検出カウンターは、登録した画像と画面の一部を比較するテンプレートマッチングツールです。文字認識や一般的な物体認識は行いません。すべての処理はこのブラウザ内で完結します。</p>
+</footer>
+
+</div><!-- /#full-view-root -->
+
+<!-- 結果だけを表示する小さい表示。#full-view-root と切り替えて使う(同じウィンドウ内)。 -->
+<div id="compact-view" class="compact-view" hidden>
+  <div class="compact-header">
+    <span class="compact-title">検出カウンター</span>
+    <button type="button" id="btn-exit-compact" class="btn">⚙ 設定を表示</button>
+  </div>
+  <p id="compact-status" class="compact-status"></p>
+  <div id="compact-results-list" class="compact-results-list"></div>
+</div>
+
+<div id="notification-area" class="notification-area" aria-live="assertive"></div>
+
+<!-- 確認ダイアログ -->
+<div id="confirm-dialog-backdrop" class="dialog-backdrop" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+    <h3 id="confirm-dialog-title">確認</h3>
+    <p id="confirm-dialog-message"></p>
+    <div class="button-row">
+      <button type="button" id="btn-confirm-yes" class="btn btn-danger">実行する</button>
+      <button type="button" id="btn-confirm-no" class="btn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- エラーダイアログ -->
+<div id="error-dialog-backdrop" class="dialog-backdrop" hidden>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-dialog-title">
+    <h3 id="error-dialog-title">問題が発生しました</h3>
+    <p id="error-dialog-message"></p>
+    <details class="error-debug-details">
+      <summary>詳細情報（デバッグ用）</summary>
+      <pre id="error-dialog-debug"></pre>
+    </details>
+    <div class="button-row">
+      <button type="button" id="btn-error-close" class="btn btn-primary">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

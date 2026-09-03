@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>検出カウンター - 画面上の対象の出現回数を数える</title>
+<meta name="description" content="ブラウザだけで完結する汎用画像検出カウンター。共有した画面の中から登録した検出対象を探し、出現回数を記録します。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="landing-wrapper">
+  <header class="app-header">
+    <h1>検出カウンター</h1>
+    <p class="app-subtitle">共有した画面の中から、登録した検出対象を探し、出現回数を記録します。</p>
+  </header>
+
+  <div class="privacy-banner" role="note">
+    <strong>プライバシーについて:</strong>
+    画面と画像の処理は、このブラウザ内だけで行われます。共有画面、登録画像、カウント結果が外部へ送信されることはありません。
+  </div>
+
+  <section class="panel landing-panel">
+    <p class="panel-desc">
+      下のボタンを押すと、操作用の専用ウィンドウが開きます。画面の選択、検出対象の登録、カウントの開始まで、
+      すべてこの専用ウィンドウの中で行います。カウントを開始すると、そのウィンドウは自動的に結果だけを表示する
+      小さな表示に切り替わり、あとから設定ボタンでいつでも元の大きさに戻せます。
+    </p>
+    <div class="button-row">
+      <button type="button" id="btn-launch-app" class="btn btn-primary btn-large">検出カウンターを開く</button>
+    </div>
+    <p id="launch-status" class="launch-status" role="status" aria-live="polite"></p>
+  </section>
+
+  <footer class="app-footer">
+    <p>検出カウンターは、登録した画像と画面の一部を比較するテンプレートマッチングツールです。文字認識や一般的な物体認識は行いません。すべての処理はこのブラウザ内で完結します。</p>
+  </footer>
+</div>
+
+<script type="module" src="js/landing.js"></script>
+</body>
+</html>

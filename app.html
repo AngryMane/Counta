@@ -53,8 +53,7 @@
     <h2 id="heading-capture">ステップ1: 検出したい画面を選択</h2>
 
     <div class="info-box">
-      <p>次の画面で、検出したい内容が表示される「画面」「ウィンドウ」または「タブ」を選択してください。</p>
-      <p><strong>このWebアプリ自身ではなく、検出したい画面を選択してください。</strong></p>
+      <p>検出したい内容が表示される「画面」「ウィンドウ」または「タブ」を選択してください。</p>
     </div>
 
     <div class="button-row">
@@ -75,19 +74,19 @@
   <!-- ステップ2: 検出対象登録 -->
   <section class="panel" id="panel-targets" aria-labelledby="heading-targets">
     <h2 id="heading-targets">ステップ2: 検出対象を登録</h2>
-    <p class="panel-desc">画面上で見つけたいものを、画像として登録してください。ゲームの結果表示、通知アイコン、完了表示、状態表示、ボタン、バッジなど、どのような画像でも登録できます。</p>
+    <p class="panel-desc">画面上で見つけたいものを登録してください。</p>
 
     <div class="register-methods">
       <div class="register-method" id="register-from-capture">
         <h3>共有中の画面から登録</h3>
-        <p class="method-desc">共有中の画面を一時停止し、範囲を指定して検出対象を切り取ります。</p>
+        <p class="method-desc">共有中の画面から範囲を指定して検出対象を切り取ります。</p>
         <button type="button" id="btn-crop-from-capture" class="btn btn-primary" disabled>現在の画面から登録</button>
         <p class="method-hint" id="crop-hint">画面を選択すると利用できます。</p>
       </div>
 
       <div class="register-method" id="register-from-file">
         <h3>画像ファイルから登録</h3>
-        <p class="method-desc">PNG・JPEG・WebPなどの画像ファイルを選んで登録します。複数選択できます。</p>
+        <p class="method-desc">PNG・JPEG・WebPなどの画像ファイルを選んで登録します。</p>
         <label for="file-input" class="btn">画像ファイルを選択</label>
         <input type="file" id="file-input" accept="image/*" multiple class="visually-hidden-input">
         <ul id="file-errors" class="file-errors" aria-live="polite"></ul>
@@ -131,7 +130,7 @@
   <!-- 探索範囲 -->
   <section class="panel" id="panel-region" aria-labelledby="heading-region">
     <h2 id="heading-region">探索範囲</h2>
-    <p class="panel-desc">画面のどの部分から検出対象を探すかを指定できます。範囲を狭めると、処理が軽くなり誤検出も減らせます。</p>
+    <p class="panel-desc">画面のどの部分から検出対象を探すか指定できます。範囲を狭めると誤検出を減らせます。</p>
 
     <fieldset class="region-mode">
       <legend>探索範囲の種類</legend>
@@ -142,7 +141,7 @@
     <div class="button-row">
       <button type="button" id="btn-select-region" class="btn" disabled>範囲を選択</button>
       <button type="button" id="btn-reset-region" class="btn">探索範囲をリセット</button>
-      <label class="toggle-label"><input type="checkbox" id="toggle-region-visible" checked> 探索範囲を画面に表示する</label>
+      <label class="toggle-label"><input type="checkbox" id="toggle-region-visible" checked> 探索範囲をプレビュー画面に表示する</label>
     </div>
     <p id="region-info" class="region-info">現在の探索範囲: 画面全体</p>
 
@@ -179,7 +178,6 @@
     <div class="button-row">
       <button type="button" id="btn-enter-compact" class="btn">結果だけの小さい表示にする</button>
     </div>
-    <p class="panel-desc">「カウントを開始」を押すと、自動的に結果だけを表示する小さいウィンドウに切り替わります。このウィンドウを画面の隅に置いたままにしておけば、他の操作をしていてもカウントは続きます(このウィンドウ自体をOSの機能で最小化すると、ブラウザの仕様上カウントが遅くなったり止まったりすることがあります)。</p>
   </section>
 
   <!-- 履歴 -->
@@ -236,17 +234,20 @@
       <div class="field-row">
         <label for="setting-enter-threshold">検出開始閾値 (<span id="enter-threshold-value">0.85</span>)</label>
         <input type="range" id="setting-enter-threshold" min="0.1" max="1" step="0.01" value="0.85">
+        <p class="field-hint">画像がどれだけ似ていたら「検出した」とみなすかです。下げると検出しやすくなりますが、誤検出も増えます。</p>
       </div>
 
       <div class="field-row">
         <label for="setting-exit-threshold">検出終了閾値 (<span id="exit-threshold-value">0.70</span>)</label>
         <input type="range" id="setting-exit-threshold" min="0.1" max="1" step="0.01" value="0.70">
+        <p class="field-hint">似ている度合いがこの値を下回ったら「消えた」とみなします。検出開始閾値より小さい値にしてください。</p>
+        <p class="field-hint" id="threshold-hint"></p>
       </div>
-      <p class="field-hint" id="threshold-hint"></p>
 
       <div class="field-row">
         <label for="setting-cooldown">クールダウン (ミリ秒)</label>
         <input type="number" id="setting-cooldown" min="0" max="60000" step="100" value="3000">
+        <p class="field-hint">一度カウントしたあと、同じ対象を数え直すまでに空ける時間です。</p>
       </div>
 
       <div class="field-row">
@@ -258,6 +259,7 @@
           <option value="3">3回/秒</option>
           <option value="5">5回/秒</option>
         </select>
+        <p class="field-hint">1秒間に画面を確認する回数です。増やすと検出が速くなりますが、パソコンが重くなることがあります。</p>
       </div>
     </fieldset>
 
@@ -267,11 +269,13 @@
       <div class="field-row">
         <label for="setting-enter-frames">検出確定までの連続フレーム数</label>
         <input type="number" id="setting-enter-frames" min="1" max="10" step="1" value="2">
+        <p class="field-hint">この回数だけ続けて検出されて、初めて「検出した」と判定します。増やすと誤検出は減りますが、判定が少し遅くなります。</p>
       </div>
 
       <div class="field-row">
         <label for="setting-exit-frames">検出終了までの連続フレーム数</label>
         <input type="number" id="setting-exit-frames" min="1" max="10" step="1" value="2">
+        <p class="field-hint">この回数だけ続けて検出されなくなって、初めて「消えた」と判定します。</p>
       </div>
 
       <div class="field-row">
@@ -282,10 +286,12 @@
           <option value="0.5" selected>50%</option>
           <option value="0.25">25%</option>
         </select>
+        <p class="field-hint">画面を確認する前に、どれだけ縮小するかです。小さくすると速くなりますが、細かい対象は検出しにくくなります。</p>
       </div>
 
       <div class="field-row">
         <label class="toggle-label"><input type="checkbox" id="setting-grayscale" checked> グレースケールで比較する</label>
+        <p class="field-hint">色ではなく明るさだけで比較します。表示のたびに色が変わりやすい対象で有効です。</p>
       </div>
 
       <div class="field-row">
@@ -295,10 +301,12 @@
           <option value="3">90% / 100% / 110%</option>
           <option value="5">80% / 90% / 100% / 110% / 120%</option>
         </select>
+        <p class="field-hint">登録した画像を少し拡大・縮小しながら探します。画面の表示倍率が変わりやすい場合に有効です(その分、処理は遅くなります)。</p>
       </div>
 
       <div class="field-row">
         <label class="toggle-label"><input type="checkbox" id="setting-debug"> デバッグ表示を有効にする</label>
+        <p class="field-hint">解析の詳しい状態をプレビュー画面に表示します。動作確認のとき以外は使いません。</p>
       </div>
 
       <div class="field-row">
@@ -308,11 +316,13 @@
       <div class="field-row">
         <label for="setting-min-template-size">最低テンプレートサイズ (px)</label>
         <input type="number" id="setting-min-template-size" min="4" max="256" step="1" value="8">
+        <p class="field-hint">これより小さい画像は、検出対象として登録できません。</p>
       </div>
 
       <div class="field-row">
         <label for="setting-max-template-count">最大検出対象数</label>
         <input type="number" id="setting-max-template-count" min="1" max="50" step="1" value="20">
+        <p class="field-hint">登録できる検出対象の上限です。</p>
       </div>
     </fieldset>
 
@@ -334,7 +344,7 @@
 </main>
 
 <footer class="app-footer">
-  <p>検出カウンターは、登録した画像と画面の一部を比較するテンプレートマッチングツールです。文字認識や一般的な物体認識は行いません。すべての処理はこのブラウザ内で完結します。</p>
+  <p>検出カウンターは、登録した画像とそっくりな部分を画面から探すツールです。文字を読み取ったり、登録していないものを自動で認識したりはしません。すべての処理はこのブラウザ内で完結します。</p>
 </footer>
 
 </div><!-- /#full-view-root -->

@@ -139,7 +139,10 @@ class Store extends EventTarget {
   constructor() {
     super();
     this.status = AppStatus.NO_SCREEN;
-    this.statusMessage = '画面がまだ選択されていません。';
+    // '' means "show the default text for this status" (see ui.js's
+    // STATUS_TEXT table); only statuses with something specific to say
+    // (an error reason, why sharing ended, ...) set this to a real string.
+    this.statusMessage = '';
     this.captureResolution = null; // {width, height}
     this.searchRegion = { mode: 'full', rect: null }; // rect: ratio {x,y,width,height}
     this.searchRegionVisible = true;
@@ -159,7 +162,11 @@ class Store extends EventTarget {
 
   setStatus(status, message) {
     this.status = status;
-    if (message !== undefined) this.statusMessage = message;
+    // Always reset, not just when a message is given: otherwise a message
+    // from an earlier status (e.g. an error reason) would keep showing
+    // after a later setStatus() call that has nothing specific to say,
+    // permanently masking that status's own default text in the UI.
+    this.statusMessage = message || '';
     this.emit('status');
   }
 
@@ -170,6 +177,29 @@ class Store extends EventTarget {
 
   addTarget(target) {
     this.targets.push(target);
+    this.emit('targets');
+  }
+
+  /**
+   * Moves a target earlier (-1) or later (+1) among only the *enabled*
+   * targets, swapping past any disabled ones in between. The compact view
+   * (the only place reordering is exposed) shows just the enabled targets
+   * in this array's order, so skipping disabled ones here guarantees each
+   * press moves the target past the next thing actually visible there -
+   * a plain adjacent-slot swap could otherwise land on a hidden disabled
+   * target and produce no visible change. No-op at the first/last enabled
+   * position.
+   */
+  moveEnabledTarget(id, direction) {
+    const enabled = this.targets.filter((t) => t.enabled);
+    const posInEnabled = enabled.findIndex((t) => t.id === id);
+    if (posInEnabled === -1) return;
+    const neighbor = enabled[posInEnabled + direction];
+    if (!neighbor) return;
+    const targets = this.targets;
+    const i = targets.findIndex((t) => t.id === id);
+    const j = targets.findIndex((t) => t.id === neighbor.id);
+    [targets[i], targets[j]] = [targets[j], targets[i]];
     this.emit('targets');
   }
 

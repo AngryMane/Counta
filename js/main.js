@@ -39,9 +39,9 @@ const ERROR_MESSAGES = {
   CAPTURE_FAILED: '選択した画面を取得できませんでした。対象のウィンドウが開いていることを確認し、もう一度「画面を選択」を押してください。',
   SCRIPT_LOAD_FAILED: '画像処理機能(OpenCV.js)を読み込めませんでした。vendorフォルダにファイルが配置されているか確認し、ページを再読み込みしてください。',
   CV_NOT_FOUND: '画像処理機能の初期化に失敗しました。ページを再読み込みしてください。',
-  WASM_INIT_FAILED: '画像処理機能(Wasm)の初期化に失敗しました。ブラウザを最新版に更新し、再読み込みしてください。',
+  WASM_INIT_FAILED: '画像処理機能の初期化に失敗しました。ブラウザを最新版に更新し、再読み込みしてください。',
   TIMEOUT: '画像処理機能の読み込みが時間内に完了しませんでした。ネットワークやファイルの配置を確認し、再読み込みしてください。',
-  INDEXEDDB_UNAVAILABLE: 'このブラウザでは設定の保存機能(IndexedDB)が利用できません。プライベートブラウジングモードなどをご利用の場合は解除してください。',
+  INDEXEDDB_UNAVAILABLE: 'このブラウザでは設定の保存機能が利用できません。プライベートブラウジングモードなどをご利用の場合は解除してください。',
   INDEXEDDB_OPEN_FAILED: '保存領域を開けませんでした。ブラウザの設定をご確認ください。',
   INDEXEDDB_WRITE_FAILED: '設定の保存に失敗しました。',
   INDEXEDDB_READ_FAILED: '保存された設定の読み込みに失敗しました。',
@@ -213,7 +213,6 @@ async function startOrChangeCapture() {
   document.getElementById('btn-stop-capture').hidden = false;
   document.getElementById('preview-wrapper').hidden = false;
   document.getElementById('btn-crop-from-capture').disabled = false;
-  document.getElementById('crop-hint').textContent = '共有中の画面から検出対象を切り取れます。';
   document.getElementById('btn-select-region').disabled = !document.getElementById('region-mode-custom').checked;
   updatePreviewResolutionText();
   updateRegionInfoText();
@@ -635,6 +634,11 @@ function toggleTargetEnabled(targetId) {
   persist();
 }
 
+function moveTarget(targetId, direction) {
+  store.moveEnabledTarget(targetId, direction);
+  persist();
+}
+
 function renameTarget(targetId, newName) {
   const target = store.getTarget(targetId);
   if (!target) return;
@@ -716,19 +720,43 @@ function renderCompactResults() {
     root.appendChild(p);
     return;
   }
-  for (const target of enabledTargets) {
-    root.appendChild(buildCompactResultRow(target));
-  }
+  enabledTargets.forEach((target, index) => {
+    root.appendChild(buildCompactResultRow(target, index, enabledTargets.length));
+  });
 }
 
-function buildCompactResultRow(target) {
+function buildCompactResultRow(target, index, total) {
   const row = document.createElement('div');
   row.className = 'compact-result-row';
 
-  const name = document.createElement('div');
+  const nameRow = document.createElement('div');
+  nameRow.className = 'compact-name-row';
+
+  const name = document.createElement('span');
   name.className = 'compact-result-name';
   name.textContent = target.name;
-  row.appendChild(name);
+  nameRow.appendChild(name);
+
+  const moveControls = document.createElement('div');
+  moveControls.className = 'compact-move-controls';
+  const upBtn = document.createElement('button');
+  upBtn.type = 'button';
+  upBtn.className = 'btn compact-move-btn';
+  upBtn.textContent = '▲';
+  upBtn.setAttribute('aria-label', `${target.name}を上へ移動`);
+  upBtn.disabled = index === 0;
+  upBtn.addEventListener('click', () => moveTarget(target.id, -1));
+  const downBtn = document.createElement('button');
+  downBtn.type = 'button';
+  downBtn.className = 'btn compact-move-btn';
+  downBtn.textContent = '▼';
+  downBtn.setAttribute('aria-label', `${target.name}を下へ移動`);
+  downBtn.disabled = index === total - 1;
+  downBtn.addEventListener('click', () => moveTarget(target.id, 1));
+  moveControls.appendChild(upBtn);
+  moveControls.appendChild(downBtn);
+  nameRow.appendChild(moveControls);
+  row.appendChild(nameRow);
 
   const controls = document.createElement('div');
   controls.className = 'compact-count-controls';
@@ -783,8 +811,12 @@ function buildCompactResultRow(target) {
 
 function updateCompactStatus() {
   const el = document.getElementById('compact-status');
-  if (!el) return;
-  el.textContent = store.counting ? 'カウント中です。' : (store.statusMessage || '');
+  const mainStatusEl = document.getElementById('status-text');
+  if (!el || !mainStatusEl) return;
+  // Mirror the main status banner's text (already computed by
+  // ui.renderStatusBanner, which runs before this) instead of recomputing
+  // it, so the two never drift out of sync.
+  el.textContent = mainStatusEl.textContent;
 }
 
 function resizeWindowBestEffort(width, height) {
@@ -818,7 +850,7 @@ function checkBrowserSupport() {
   const warning = document.getElementById('browser-warning');
   const messages = [];
   if (!CaptureManager.isSupported()) {
-    messages.push('お使いのブラウザは画面共有(getDisplayMedia)に対応していないため、このアプリを利用できません。Google ChromeまたはMicrosoft Edgeの最新版でお試しください。');
+    messages.push('お使いのブラウザは画面共有に対応していないため、このアプリを利用できません。Google ChromeまたはMicrosoft Edgeの最新版でお試しください。');
     document.getElementById('btn-start-capture').disabled = true;
   } else {
     const ua = navigator.userAgent;
@@ -1143,7 +1175,7 @@ async function bootstrap() {
       ui.showErrorDialog(friendlyErrorMessage(e), debugText(e));
     }
   } else {
-    document.getElementById('save-status').textContent = 'このブラウザでは自動保存(IndexedDB)が利用できません。設定の書き出し機能をご利用ください。';
+    document.getElementById('save-status').textContent = 'このブラウザでは自動保存が利用できません。設定の書き出し機能をご利用ください。';
   }
 
   if (restored) {
